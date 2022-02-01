@@ -3,3 +3,11 @@
 *.tst
 *.out
 *.hack
+*.cmake
+*.o
+*.d
+*.bin
+*.marks
+*.make
+*.check_cache
+CMakeFiles
