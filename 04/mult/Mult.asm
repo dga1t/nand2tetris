@@ -15,40 +15,47 @@
 @R2
 M=0
 
-// Jump into the first STEP if R0 > 0.
 @R0
 D=M
-@STEP
-D;JGT
+@x
+M=D   // x = R0
 
-// If it didn't jump, go to END.
-@END
-0;JMP
+@R1
+D=M
+@y
+M=D   // y = R1
 
-// Adds R1 to R2 and removes 1 from R0.
-// If R0 is more than 0 we step again.
-(STEP)
-    // Get R2.
-    @R2
-    D=M
+@i
+M=1   // i = 1
 
-    // Add R1 to it.
-    @R1
-    D=D+M
+@sum
+M=0   // sum = 0
 
-    // And write the result back to R2.
-    @R2
-    M=D
+(LOOP)
+  @i
+  D=M
+  @y
+  D=D-M 
+  @STOP
+  D;JGT // if i > y goto STOP
 
-    // Reduce R0 by 1.
-    @R0
-    D=M-1
-    M=D
+  @sum
+  D=M
+  @x
+  D=D+M
+  @sum
+  M=D   // sum = sum + x
+  @i
+  M=M+1
+  @LOOP
+  0;JMP
 
-    // If R0 is still > 0 then loop.
-    @STEP
-    D;JGT
+(STOP)
+  @sum
+  D=M
+  @R2
+  M=D   // RAM[2] = sum
 
 (END)
-    @END
-    0;JMP
+  @END
+  0;JMP
