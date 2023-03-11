@@ -7,3 +7,26 @@
 push constant 7
 push constant 8
 add
+
+// practicing unit 1.5
+@LCL
+M=1015
+
+@SP
+M=258
+
+@addr
+D=M
+@LCL
+D=D+M
+@addr
+M=D
+
+@SP
+D=M-1
+M=D
+
+@SP
+D=M
+@addr
+M=D
