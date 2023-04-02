@@ -1,8 +1,8 @@
-import java.util.EnumSet;
 import java.util.Scanner;
 import java.io.File;
 import java.io.IOException;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
 
 enum CommandType {
   C_ARITHMETIC,
@@ -18,9 +18,6 @@ enum CommandType {
 }
 
 public class VMTranslator {
-  // input - fileName.vm
-  // output - fileName.asm
-
   public static void main(String[] args) throws IOException {
     if (args.length > 0) {
       System.out.println("arg[0] is:");
@@ -31,9 +28,6 @@ public class VMTranslator {
       Parser parser = new Parser(file);
       parser.readFile();
 
-      // TODO change file extention to .asm
-      // CodeWriter codeWriter = new CodeWriter(file);
-
     } else {
       System.out.println("Please provide a path to .vm file.");
     }
@@ -41,46 +35,51 @@ public class VMTranslator {
 }
 
 class Parser {
-  String inputFile;
+  String fileName;
   Scanner scanner;
+  CodeWriter codeWriter;
   // int currentCommand = 0;
 
-  public Parser(String fileName) {
-    inputFile = fileName;
+  public Parser(String file) {
+    fileName = file;
   }
 
+  
+  
   public void readFile() {
     try {
-      scanner = new Scanner(new File(inputFile));
+      scanner = new Scanner(new File(fileName));
       System.out.println("Reading a text file using Scanner");
+
+      codeWriter = new CodeWriter(fileName);
 
       while (scanner.hasNextLine()) {
         String line = scanner.nextLine();
-        System.out.printf("current line >>> %s\n", line);
+        // System.out.printf("current line >>> %s\n", line);
 
         boolean isCommentOrEmptyLine = checkCommentOrEmptyLine(line);
         if (isCommentOrEmptyLine) {
           continue;
         }
 
+        codeWriter.writeArithmetic(line);
+
         String arg1 = arg1(line);
-        System.out.printf("arg1: %s\n", arg1);
-
+        // System.out.printf("arg1: %s\n", arg1);
         CommandType cmd = commandType(arg1);
-        System.out.printf("cmd type: %s\n", cmd);
-
+        // System.out.printf("cmd type: %s\n", cmd);
         boolean hasSecondArg = checkCommandTypeHasSecondArg(cmd);
-        System.out.printf("cmd has second arg: %b\n", hasSecondArg);
+        // System.out.printf("cmd has second arg: %b\n", hasSecondArg);
+
         if (hasSecondArg) {
           String arg2 = arg2(line);
-          System.out.printf("arg2: %s\n", arg2);
+          // System.out.printf("arg2: %s\n", arg2);
         }
-
-        // TODO - pass args to codeWriter
-
       }
 
       scanner.close();
+      codeWriter.close();
+
     } catch (FileNotFoundException e) {
       System.out.println("An error reading file.");
       e.printStackTrace();
@@ -154,32 +153,30 @@ class Parser {
         return false;
     }
   }
-
-  // public boolean hasMoreCommands() {
-  //   return true;
-  // }
-
-  // public void advance() {
-  //   // reads the next command from the input and makes it the current command.
-  //   // should be called only if hasMoreCommands() is true
-  //   // initially there is no current command
-  // }
 }
 
 class CodeWriter {
   String outputFile;
+  FileWriter writer;
 
-  // receives string or stream ??
-  // opens the outputFile/stream and gets ready to write to it
   public CodeWriter(String fileName) {
-    outputFile = fileName;
+    try {
+      outputFile = changeFileExtention(fileName);
+      writer = new FileWriter(outputFile);
+    } catch (IOException ex) {
+      ex.printStackTrace();
+    }
   }
 
   public void writeArithmetic(String command) {
-    // writes to the output file the assembly code
-    // that implements the given arithmetic command
-
+    // writes to the output file the assembly code that implements the given arithmetic command
     // most of the work done here
+
+    try {
+      writer.write(command + System.lineSeparator());
+    } catch(IOException ex) {
+      ex.printStackTrace();
+    }
   }
 
   public void writePushPop(String command, String segment, int index) {
@@ -189,8 +186,16 @@ class CodeWriter {
     // rest of the work done here
   }
 
+  public String changeFileExtention(String fileName) {    
+    return fileName.replaceAll(".vm", ".asm");
+  }
+
   public void close() {
-    // closes the output file
+    try {
+      writer.close();
+    } catch(IOException ex) {
+      ex.printStackTrace();
+    }
   }
 }
 
