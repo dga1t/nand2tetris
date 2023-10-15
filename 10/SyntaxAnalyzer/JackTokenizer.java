@@ -6,8 +6,8 @@ import java.util.regex.Pattern;
 
 /**
  * Tokenizer
- * 1.Removes all comments and white space from the input stream
- * 2.breaks it into Jack-language tokens, as specified by the Jack grammar.
+ * 1.Removes all comments and white space from the input stream.
+ * 2.Breaks it into Jack-language tokens, as specified by the Jack grammar.
  */
 public class JackTokenizer {
   //constant for type
@@ -65,8 +65,9 @@ public class JackTokenizer {
     keyWordMap.put("let", LET); keyWordMap.put("do", DO); keyWordMap.put("if", IF);
     keyWordMap.put("else", ELSE); keyWordMap.put("while", WHILE); keyWordMap.put("return", RETURN);
 
-    opSet.add('+');opSet.add('-');opSet.add('*');opSet.add('/');opSet.add('&');opSet.add('|');
-    opSet.add('<');opSet.add('>');opSet.add('=');
+    opSet.add('+'); opSet.add('-'); opSet.add('*');
+    opSet.add('/'); opSet.add('&'); opSet.add('|');
+    opSet.add('<'); opSet.add('>'); opSet.add('=');
   }
 
   /**
