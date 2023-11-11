@@ -1,6 +1,9 @@
-import java.util.*;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -10,39 +13,23 @@ import java.util.regex.Pattern;
  * 2.Breaks it into Jack-language tokens, as specified by the Jack grammar.
  */
 public class JackTokenizer {
-  //constant for type
-  public final static int KEYWORD = 1;
-  public final static int SYMBOL = 2;
-  public final static int IDENTIFIER = 3;
-  public final static int INT_CONST = 4;
-  public final static int STRING_CONST = 5;
+  public static enum TYPE {
+    KEYWORD,
+    SYMBOL,
+    IDENTIFIER,
+    INT_CONST,
+    STRING_CONST,
+    NONE
+  };
+  public static enum KEYWORD {
+    CLASS, METHOD, FUNCTION, CONSTRUCTOR,
+    INT, BOOLEAN, CHAR, VOID, VAR, STATIC,
+    FIELD, LET, DO, IF, ELSE, WHILE,
+    RETURN, TRUE, FALSE, NULL, THIS
+  };
 
-  //constant for keyword
-  public final static int CLASS = 10;
-  public final static int METHOD = 11;
-  public final static int FUNCTION = 12;
-  public final static int CONSTRUCTOR = 13;
-  public final static int INT = 14;
-  public final static int BOOLEAN = 15;
-  public final static int CHAR = 16;
-  public final static int VOID = 17;
-  public final static int VAR = 18;
-  public final static int STATIC = 19;
-  public final static int FIELD = 20;
-  public final static int LET = 21;
-  public final static int DO = 22;
-  public final static int IF = 23;
-  public final static int ELSE = 24;
-  public final static int WHILE = 25;
-  public final static int RETURN = 26;
-  public final static int TRUE = 27;
-  public final static int FALSE = 28;
-  public final static int NULL = 29;
-  public final static int THIS = 30;
-
-  private Scanner scanner;
   private String currentToken;
-  private int currentTokenType;
+  private TYPE currentTokenType;
   private int pointer;
   private ArrayList<String> tokens;
 
@@ -53,17 +40,17 @@ public class JackTokenizer {
   private static String strReg;
   private static String idReg;
 
-  private static HashMap<String,Integer> keyWordMap = new HashMap<String, Integer>();
+  private static HashMap<String, KEYWORD> keyWordMap = new HashMap<String, KEYWORD>();
   private static HashSet<Character> opSet = new HashSet<Character>();
 
   static {
-    keyWordMap.put("class",  CLASS); keyWordMap.put("constructor", CONSTRUCTOR); keyWordMap.put("function", FUNCTION);
-    keyWordMap.put("method", METHOD); keyWordMap.put("field", FIELD); keyWordMap.put("static", STATIC);
-    keyWordMap.put("var", VAR); keyWordMap.put("int", INT); keyWordMap.put("char", CHAR);
-    keyWordMap.put("boolean", BOOLEAN); keyWordMap.put("void", VOID); keyWordMap.put("true", TRUE);
-    keyWordMap.put("false", FALSE); keyWordMap.put("null", NULL); keyWordMap.put("this", THIS);
-    keyWordMap.put("let", LET); keyWordMap.put("do", DO); keyWordMap.put("if", IF);
-    keyWordMap.put("else", ELSE); keyWordMap.put("while", WHILE); keyWordMap.put("return", RETURN);
+    keyWordMap.put("class",  KEYWORD.CLASS); keyWordMap.put("constructor", KEYWORD.CONSTRUCTOR); keyWordMap.put("function", KEYWORD.FUNCTION);
+    keyWordMap.put("method", KEYWORD.METHOD); keyWordMap.put("field", KEYWORD.FIELD); keyWordMap.put("static", KEYWORD.STATIC);
+    keyWordMap.put("var", KEYWORD.VAR); keyWordMap.put("int", KEYWORD.INT); keyWordMap.put("char", KEYWORD.CHAR);
+    keyWordMap.put("boolean", KEYWORD.BOOLEAN); keyWordMap.put("void", KEYWORD.VOID); keyWordMap.put("true", KEYWORD.TRUE);
+    keyWordMap.put("false", KEYWORD.FALSE); keyWordMap.put("null", KEYWORD.NULL); keyWordMap.put("this", KEYWORD.THIS);
+    keyWordMap.put("let", KEYWORD.LET); keyWordMap.put("do", KEYWORD.DO); keyWordMap.put("if", KEYWORD.IF);
+    keyWordMap.put("else", KEYWORD.ELSE); keyWordMap.put("while", KEYWORD.WHILE); keyWordMap.put("return", KEYWORD.RETURN);
 
     opSet.add('+'); opSet.add('-'); opSet.add('*');
     opSet.add('/'); opSet.add('&'); opSet.add('|');
@@ -76,7 +63,7 @@ public class JackTokenizer {
    */
   public JackTokenizer(File inFile) {
     try {
-      scanner = new Scanner(inFile);
+      Scanner scanner = new Scanner(inFile);
       String preprocessed = "";
       String line = "";
 
@@ -104,7 +91,7 @@ public class JackTokenizer {
     }
 
     currentToken = "";
-    currentTokenType = -1;
+    currentTokenType = TYPE.NONE;
   }
 
   private void initRegs() {
@@ -117,9 +104,9 @@ public class JackTokenizer {
     symbolReg = "[\\&\\*\\+\\(\\)\\.\\/\\,\\-\\]\\;\\~\\}\\|\\{\\>\\=\\[\\<]";
     intReg = "[0-9]+";
     strReg = "\"[^\"\n]*\"";
-    idReg = "[\\w_]+";
+    idReg = "[a-zA-Z_]\\w*";
 
-    tokenPatterns = Pattern.compile(keyWordReg + symbolReg + "|" + intReg + "|" + strReg + "|" + idReg);
+    tokenPatterns = Pattern.compile(idReg + "|" + keyWordReg + symbolReg + "|" + intReg + "|" + strReg);
   }
 
   public Boolean hasMoreTokens() {
@@ -140,15 +127,15 @@ public class JackTokenizer {
     }
 
     if (currentToken.matches(keyWordReg)) {
-      currentTokenType = KEYWORD;
+      currentTokenType = TYPE.KEYWORD;
     } else if (currentToken.matches(symbolReg)) {
-      currentTokenType = SYMBOL;
+      currentTokenType = TYPE.SYMBOL;
     } else if (currentToken.matches(intReg)) {
-      currentTokenType = INT_CONST;
+      currentTokenType = TYPE.INT_CONST;
     } else if (currentToken.matches(strReg)) {
-      currentTokenType = STRING_CONST;
+      currentTokenType = TYPE.STRING_CONST;
     } else if (currentToken.matches(idReg)) {
-      currentTokenType = IDENTIFIER;
+      currentTokenType = TYPE.IDENTIFIER;
     } else {
       throw new IllegalArgumentException("Unknown token:" + currentToken);
     }
@@ -158,7 +145,7 @@ public class JackTokenizer {
     return currentToken;
   }
 
-  public int tokenType() {
+  public TYPE tokenType() {
     return currentTokenType;
   }
 
@@ -166,8 +153,8 @@ public class JackTokenizer {
    * Returns the keyword which is the current token - should be called only when tokeyType() is KEYWORD
    * @return
    */
-  public int keyWord() {
-    if (currentTokenType == KEYWORD) {
+  public KEYWORD keyWord() {
+    if (currentTokenType == TYPE.KEYWORD) {
       return keyWordMap.get(currentToken);
     } else {
       throw new IllegalStateException("Current token is not a keyword!");
@@ -179,7 +166,7 @@ public class JackTokenizer {
    * @return
    */
   public char symbol() {
-    if (currentTokenType == SYMBOL) {
+    if (currentTokenType == TYPE.SYMBOL) {
       return currentToken.charAt(0);
     } else {
       throw new IllegalStateException("Current token is not a symbol!");
@@ -191,7 +178,7 @@ public class JackTokenizer {
    * @return
    */
   public String identifier() {
-    if (currentTokenType == IDENTIFIER) {
+    if (currentTokenType == TYPE.IDENTIFIER) {
       return currentToken;
     } else {
       throw new IllegalStateException("Current token is not an identifier!");
@@ -203,7 +190,7 @@ public class JackTokenizer {
    * @return
    */
   public int intVal() {
-    if (currentTokenType == INT_CONST) {
+    if (currentTokenType == TYPE.INT_CONST) {
       return Integer.parseInt(currentToken);
     } else {
       throw new IllegalStateException("Current token is not an integer constant!");
@@ -215,7 +202,7 @@ public class JackTokenizer {
    * @return
    */
   public String stringVal() {
-    if (currentTokenType == STRING_CONST) {
+    if (currentTokenType == TYPE.STRING_CONST) {
       return currentToken.substring(1, currentToken.length() - 1);
     } else {
       throw new IllegalStateException("Current token is not a string constant!");

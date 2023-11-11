@@ -25,7 +25,7 @@ import java.util.Map;
 public class SymbolTable {
   private HashMap<String, Symbol> classSymbols;       //for STATIC, FIELD
   private HashMap<String, Symbol> subroutineSymbols;  //for ARG, VAR
-  private HashMap<Symbol.Kind, Integer> indices;
+  private HashMap<Symbol.KIND, Integer> indices;
 
   /**
    * Creates a new empty symbol table and inits all indices.
@@ -34,11 +34,11 @@ public class SymbolTable {
     classSymbols = new HashMap<String, Symbol>();
     subroutineSymbols = new HashMap<String, Symbol>();
 
-    indices = new HashMap<Symbol.Kind, Integer>();
-    indices.put(Symbol.Kind.ARG, 0);
-    indices.put(Symbol.Kind.FIELD, 0);
-    indices.put(Symbol.Kind.STATIC, 0);
-    indices.put(Symbol.Kind.VAR, 0);
+    indices = new HashMap<Symbol.KIND, Integer>();
+    indices.put(Symbol.KIND.STATIC, 0);
+    indices.put(Symbol.KIND.FIELD, 0);
+    indices.put(Symbol.KIND.ARG, 0);
+    indices.put(Symbol.KIND.VAR, 0);
   }
 
   /**
@@ -46,8 +46,8 @@ public class SymbolTable {
    */
   public void startSubroutine(){
     subroutineSymbols.clear();
-    indices.put(Symbol.Kind.VAR,0);
-    indices.put(Symbol.Kind.ARG,0);
+    indices.put(Symbol.KIND.VAR,0);
+    indices.put(Symbol.KIND.ARG,0);
   }
 
   /**
@@ -57,13 +57,13 @@ public class SymbolTable {
    * @param type
    * @param kind
    */
-  public void define(String name, String type, Symbol.Kind kind) {
-    if (kind == Symbol.Kind.ARG || kind == Symbol.Kind.VAR) {
+  public void define(String name, String type, Symbol.KIND kind) {
+    if (kind == Symbol.KIND.ARG || kind == Symbol.KIND.VAR) {
       int index = indices.get(kind);
       Symbol symbol = new Symbol(type, kind, index);
       indices.put(kind, index + 1);
       subroutineSymbols.put(name, symbol);
-    } else if (kind == Symbol.Kind.STATIC || kind == Symbol.Kind.FIELD) {
+    } else if (kind == Symbol.KIND.STATIC || kind == Symbol.KIND.FIELD) {
       int index = indices.get(kind);
       Symbol symbol = new Symbol(type, kind, index);
       indices.put(kind, index + 1);
@@ -76,7 +76,7 @@ public class SymbolTable {
    * @param kind
    * @return
    */
-  public int varCount(Symbol.Kind kind) {
+  public int varCount(Symbol.KIND kind) {
     return indices.get(kind);
   }
 
@@ -86,9 +86,9 @@ public class SymbolTable {
    * @param name
    * @return
    */
-  public Symbol.Kind kindOf(String name) {
+  public Symbol.KIND kindOf(String name) {
     Symbol symbol = lookUp(name);
-    if (symbol == null) return Symbol.Kind.NONE;
+    if (symbol == null) return Symbol.KIND.NONE;
     return symbol.getKind();
   }
 
