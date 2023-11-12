@@ -272,6 +272,9 @@ public class CompilationEngine {
   }
 
 
+  // <<<<<< stopped here >>>>>>>
+
+
   /**
    * Compiles a single statement
    */
@@ -280,21 +283,21 @@ public class CompilationEngine {
     tokenizer.advance();
 
     //next is a '}'
-    if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == '}') {
+    if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && tokenizer.symbol() == '}') {
       tokenizer.pointerBack();
       return;
     }
 
     //next is 'let'|'if'|'while'|'do'|'return'
-    if (tokenizer.tokenType() != JackTokenizer.KEYWORD) {
+    if (tokenizer.tokenType() != JackTokenizer.TYPE.KEYWORD) {
       error("keyword");
     } else {
       switch (tokenizer.keyWord()) {
-        case JackTokenizer.LET: compileLet(); break;
-        case JackTokenizer.IF: compileIf(); break;
-        case JackTokenizer.WHILE: compilesWhile(); break;
-        case JackTokenizer.DO: compileDo(); break;
-        case JackTokenizer.RETURN: compileReturn(); break;
+        case LET: compileLet(); break;
+        case IF: compileIf(); break;
+        case WHILE: compilesWhile(); break;
+        case DO: compileDo(); break;
+        case RETURN: compileReturn(); break;
         default: error("'let'|'if'|'while'|'do'|'return'");
       }
     }
@@ -308,10 +311,12 @@ public class CompilationEngine {
   private void compileParameterList() {
     //check if there is parameterList, if next token is ')' than go back
     tokenizer.advance();
-    if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == ')') {
+    if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && tokenizer.symbol() == ')') {
       tokenizer.pointerBack();
       return;
     }
+
+    String type = "";
 
     //there is parameter, at least one varName
     tokenizer.pointerBack();
@@ -321,25 +326,23 @@ public class CompilationEngine {
 
       //varName
       tokenizer.advance();
-      if (tokenizer.tokenType() != JackTokenizer.IDENTIFIER) {
+      if (tokenizer.tokenType() != JackTokenizer.TYPE.IDENTIFIER) {
         error("identifier");
       }
-      printWriter.print("<identifier>" + tokenizer.identifier() + "</identifier>\n");
-      tokenPrintWriter.print("<identifier>" + tokenizer.identifier() + "</identifier>\n");
+
+      symbolTable.define(tokenizer.identifier(), type, Symbol.KIND.ARG);
 
       //',' or ')'
       tokenizer.advance();
-      if (tokenizer.tokenType() != JackTokenizer.SYMBOL || (tokenizer.symbol() != ',' && tokenizer.symbol() != ')')) {
+      if (tokenizer.tokenType() != JackTokenizer.TYPE.SYMBOL || (tokenizer.symbol() != ',' && tokenizer.symbol() != ')')) {
         error("',' or ')'");
       }
 
-      if (tokenizer.symbol() == ',') {
-        printWriter.print("<symbol>,</symbol>\n");
-        tokenPrintWriter.print("<symbol>,</symbol>\n");
-      } else {
+      if (tokenizer.symbol() == ')') {
         tokenizer.pointerBack();
         break;
       }
+
     } while(true);
   }
 
@@ -351,47 +354,41 @@ public class CompilationEngine {
     //determine if there is a varDec
     tokenizer.advance();
     //no 'var' go back
-    if (tokenizer.tokenType() != JackTokenizer.KEYWORD || tokenizer.keyWord() != JackTokenizer.VAR) {
+    if (tokenizer.tokenType() != JackTokenizer.TYPE.KEYWORD || tokenizer.keyWord() != JackTokenizer.KEYWORD.VAR) {
       tokenizer.pointerBack();
       return;
     }
 
-    printWriter.print("<varDec>\n");
-    printWriter.print("<keyword>var</keyword>\n");
-    tokenPrintWriter.print("<keyword>var</keyword>\n");
 
     //type
-    compileType();
+    String type = compileType();
+
+    //at least one varName
+    boolean varNamesDone = false;
 
     do {
       //varName
       tokenizer.advance();
 
-      if (tokenizer.tokenType() != JackTokenizer.IDENTIFIER) {
+      if (tokenizer.tokenType() != JackTokenizer.TYPE.IDENTIFIER) {
         error("identifier");
       }
 
-      printWriter.print("<identifier>" + tokenizer.identifier() + "</identifier>\n");
-      tokenPrintWriter.print("<identifier>" + tokenizer.identifier() + "</identifier>\n");
+      symbolTable.define(tokenizer.identifier(), type, Symbol.KIND.VAR);
 
       //',' or ';'
       tokenizer.advance();
 
-      if (tokenizer.tokenType() != JackTokenizer.SYMBOL || (tokenizer.symbol() != ',' && tokenizer.symbol() != ';')) {
+      if (tokenizer.tokenType() != JackTokenizer.TYPE.SYMBOL || (tokenizer.symbol() != ',' && tokenizer.symbol() != ';')) {
         error("',' or ';'");
       }
 
-      if (tokenizer.symbol() == ',') {
-        printWriter.print("<symbol>,</symbol>\n");
-        tokenPrintWriter.print("<symbol>,</symbol>\n");
-      } else {
-        printWriter.print("<symbol>;</symbol>\n");
-        tokenPrintWriter.print("<symbol>;</symbol>\n");
+      if (tokenizer.symbol() == ';') {
         break;
       }
+
     } while(true);
 
-    printWriter.print("</varDec>\n");
     compileVarDec();
   }
 
@@ -400,15 +397,12 @@ public class CompilationEngine {
    * 'do' subroutineCall ';'
    */
   private void compileDo() {
-    printWriter.print("<doStatement>\n");
-    printWriter.print("<keyword>do</keyword>\n");
-    tokenPrintWriter.print("<keyword>do</keyword>\n");
     //subroutineCall
     compileSubroutineCall();
     //';'
     requireSymbol(';');
 
-    printWriter.print("</doStatement>\n");
+    vmWriter.writePop(VMWriter.SEGMENT.TEMP, 0);
   }
 
   /**
@@ -416,22 +410,17 @@ public class CompilationEngine {
    * 'let' varName ('[' ']')? '=' expression ';'
    */
   private void compileLet() {
-    printWriter.print("<letStatement>\n");
-    printWriter.print("<keyword>let</keyword>\n");
-    tokenPrintWriter.print("<keyword>let</keyword>\n");
-
     //varName
     tokenizer.advance();
-    if (tokenizer.tokenType() != JackTokenizer.IDENTIFIER) {
+    if (tokenizer.tokenType() != JackTokenizer.TYPE.IDENTIFIER) {
       error("varName");
     }
 
-    printWriter.print("<identifier>" + tokenizer.identifier() + "</identifier>\n");
-    tokenPrintWriter.print("<identifier>" + tokenizer.identifier() + "</identifier>\n");
+    String varName = tokenizer.identifier();
 
     //'[' or '='
     tokenizer.advance();
-    if (tokenizer.tokenType() != JackTokenizer.SYMBOL || (tokenizer.symbol() != '[' && tokenizer.symbol() != '=')) {
+    if (tokenizer.tokenType() != JackTokenizer.TYPE.SYMBOL || (tokenizer.symbol() != '[' && tokenizer.symbol() != '=')) {
       error("'['|'='");
     }
 
@@ -441,26 +430,16 @@ public class CompilationEngine {
     if (tokenizer.symbol() == '[') {
       expExist = true;
 
-      printWriter.print("<symbol>[</symbol>\n");
-      tokenPrintWriter.print("<symbol>[</symbol>\n");
-
       compileExpression();
 
       //']'
-      tokenizer.advance();
-      if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == ']') {
-        printWriter.print("<symbol>]</symbol>\n");
-        tokenPrintWriter.print("<symbol>]</symbol>\n");
-      } else {
-        error("']'");
-      }
+      requireSymbol(']');
+
+      //base+offset
+      vmWriter.writeArithmetic(VMWriter.COMMAND.ADD);
     }
 
     if (expExist) tokenizer.advance();
-
-    //'='
-    printWriter.print("<symbol>=</symbol>\n");
-    tokenPrintWriter.print("<symbol>=</symbol>\n");
 
     //expression
     compileExpression();
@@ -468,7 +447,34 @@ public class CompilationEngine {
     //';'
     requireSymbol(';');
 
-    printWriter.print("</letStatement>\n");
+    if (expExist) {
+      //*(base+offset) = expression
+      //pop expression value to temp
+      vmWriter.writePop(VMWriter.SEGMENT.TEMP,0);
+      //pop base+index into 'that'
+      vmWriter.writePop(VMWriter.SEGMENT.POINTER,1);
+      //pop expression value into *(base+index)
+      vmWriter.writePush(VMWriter.SEGMENT.TEMP,0);
+      vmWriter.writePop(VMWriter.SEGMENT.THAT,0);
+    } else {
+      //pop expression value directly
+      vmWriter.writePop(getSeg(symbolTable.kindOf(varName)), symbolTable.indexOf(varName));
+    }
+  }
+
+  /**
+   * return corresponding seg for input kind
+   * @param kind
+   * @return
+   */
+  private VMWriter.SEGMENT getSeg(Symbol.KIND kind) {
+    switch (kind){
+      case FIELD: return VMWriter.SEGMENT.THIS;
+      case STATIC: return VMWriter.SEGMENT.STATIC;
+      case VAR: return VMWriter.SEGMENT.LOCAL;
+      case ARG: return VMWriter.SEGMENT.ARG;
+      default: return VMWriter.SEGMENT.NONE;
+    }
   }
 
   /**
@@ -476,25 +482,34 @@ public class CompilationEngine {
    * 'while' '(' expression ')' '{' statements '}'
    */
   private void compilesWhile() {
-    printWriter.print("<whileStatement>\n");
-    printWriter.print("<keyword>while</keyword>\n");
-    tokenPrintWriter.print("<keyword>while</keyword>\n");
+    String continueLabel = newLabel();
+    String topLabel = newLabel();
+
+    //top label for while loop
+    vmWriter.writeLabel(topLabel);
     //'('
     requireSymbol('(');
-    //expression
+    //expression while condition: true or false
     compileExpression();
     //')'
     requireSymbol(')');
+    //if ~(condition) go to continue label
+    vmWriter.writeArithmetic(VMWriter.COMMAND.NOT);
+    vmWriter.writeIf(continueLabel);
     //'{'
     requireSymbol('{');
     //statements
-    printWriter.print("<statements>\n");
     compileStatement();
-    printWriter.print("</statements>\n");
     //'}'
     requireSymbol('}');
+    //if (condition) go to top label
+    vmWriter.writeGoto(topLabel);
+    //or continue
+    vmWriter.writeLabel(continueLabel);
+  }
 
-    printWriter.print("</whileStatement>\n");
+  private String newLabel() {
+    return "LABEL_" + (labelIndex++);
   }
 
   /**
@@ -502,27 +517,22 @@ public class CompilationEngine {
    * ‘return’ expression? ';'
    */
   private void compileReturn() {
-    printWriter.print("<returnStatement>\n");
-    printWriter.print("<keyword>return</keyword>\n");
-    tokenPrintWriter.print("<keyword>return</keyword>\n");
-
     //check if there is any expression
     tokenizer.advance();
     //no expression
-    if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == ';') {
-      printWriter.print("<symbol>;</symbol>\n");
-      tokenPrintWriter.print("<symbol>;</symbol>\n");
-      printWriter.print("</returnStatement>\n");
-      return;
+    if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && tokenizer.symbol() == ';') {
+      //no expression push 0 to stack
+      vmWriter.writePush(VMWriter.SEGMENT.CONST, 0);
+    } else {
+      //expression exist
+      tokenizer.pointerBack();
+      //expression
+      compileExpression();
+      //';'
+      requireSymbol(';');
     }
 
-    tokenizer.pointerBack();
-    //expression
-    compileExpression();
-    //';'
-    requireSymbol(';');
-
-    printWriter.print("</returnStatement>\n");
+    vmWriter.writeReturn();
   }
 
   /**
@@ -530,42 +540,42 @@ public class CompilationEngine {
    * 'if' '(' expression ')' '{' statements '}' ('else' '{' statements '}')?
    */
   private void compileIf() {
-    printWriter.print("<ifStatement>\n");
-    printWriter.print("<keyword>if</keyword>\n");
-    tokenPrintWriter.print("<keyword>if</keyword>\n");
+    String elseLabel = newLabel();
+    String endLabel = newLabel();
+
     //'('
     requireSymbol('(');
     //expression
     compileExpression();
     //')'
     requireSymbol(')');
+    //if ~(condition) go to else label
+    vmWriter.writeArithmetic(VMWriter.COMMAND.NOT);
+    vmWriter.writeIf(elseLabel);
     //'{'
     requireSymbol('{');
     //statements
-    printWriter.print("<statements>\n");
     compileStatement();
-    printWriter.print("</statements>\n");
     //'}'
     requireSymbol('}');
+    //if condition after statement is over, go to end label
+    vmWriter.writeGoto(endLabel);
+    vmWriter.writeLabel(elseLabel);
 
     //check if there is 'else'
     tokenizer.advance();
-    if (tokenizer.tokenType() == JackTokenizer.KEYWORD && tokenizer.keyWord() == JackTokenizer.ELSE) {
-      printWriter.print("<keyword>else</keyword>\n");
-      tokenPrintWriter.print("<keyword>else</keyword>\n");
+    if (tokenizer.tokenType() == JackTokenizer.TYPE.KEYWORD && tokenizer.keyWord() == JackTokenizer.KEYWORD.ELSE) {
       //'{'
       requireSymbol('{');
       //statements
-      printWriter.print("<statements>\n");
       compileStatement();
-      printWriter.print("</statements>\n");
       //'}'
       requireSymbol('}');
     } else {
       tokenizer.pointerBack();
     }
 
-    printWriter.print("</ifStatement>\n");
+    vmWriter.writeLabel(endLabel);
   }
 
   /**
@@ -578,26 +588,30 @@ public class CompilationEngine {
    * integerConstant|stringConstant|keywordConstant|varName|varName '[' expression ']'|subroutineCall|'(' expression ')'|unaryOp term
    */
   private void compileTerm() {
-    printWriter.print("<term>\n");
-
     tokenizer.advance();
     //check if it is an identifier
-    if (tokenizer.tokenType() == JackTokenizer.IDENTIFIER) {
+    if (tokenizer.tokenType() == JackTokenizer.TYPE.IDENTIFIER) {
       //varName|varName '[' expression ']'|subroutineCall
       String tempId = tokenizer.identifier();
 
       tokenizer.advance();
-      if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == '[') {
-        printWriter.print("<identifier>" + tempId + "</identifier>\n");
-        tokenPrintWriter.print("<identifier>" + tempId + "</identifier>\n");
+      if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && tokenizer.symbol() == '[') {
         //this is an array entry
-        printWriter.print("<symbol>[</symbol>\n");
-        tokenPrintWriter.print("<symbol>[</symbol>\n");
+        //push array variable, base address into stack
+        vmWriter.writePush(getSeg(symbolTable.kindOf(tempId)), symbolTable.indexOf(tempId));
         //expression
         compileExpression();
         //']'
         requireSymbol(']');
-      } else if (tokenizer.tokenType() == JackTokenizer.SYMBOL && (tokenizer.symbol() == '(' || tokenizer.symbol() == '.')) {
+
+        //base+offset
+        vmWriter.writeArithmetic(VMWriter.COMMAND.ADD);
+        //pop into 'that' pointer
+        vmWriter.writePop(VMWriter.SEGMENT.POINTER, 1);
+        //push *(base+index) onto stack
+        vmWriter.writePush(VMWriter.SEGMENT.THAT, 0);
+
+      } else if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && (tokenizer.symbol() == '(' || tokenizer.symbol() == '.')) {
         //this is a subroutineCall
         tokenizer.pointerBack();tokenizer.pointerBack();
         compileSubroutineCall();
@@ -609,36 +623,56 @@ public class CompilationEngine {
       }
     } else {
       //integerConstant|stringConstant|keywordConstant|'(' expression ')'|unaryOp term
-      if (tokenizer.tokenType() == JackTokenizer.INT_CONST) {
-        printWriter.print("<integerConstant>" + tokenizer.intVal() + "</integerConstant>\n");
-        tokenPrintWriter.print("<integerConstant>" + tokenizer.intVal() + "</integerConstant>\n");
-      } else if (tokenizer.tokenType() == JackTokenizer.STRING_CONST) {
-        printWriter.print("<stringConstant>" + tokenizer.stringVal() + "</stringConstant>\n");
-        tokenPrintWriter.print("<stringConstant>" + tokenizer.stringVal() + "</stringConstant>\n");
-      } else if (tokenizer.tokenType() == JackTokenizer.KEYWORD
-                && (tokenizer.keyWord() == JackTokenizer.TRUE
-                || tokenizer.keyWord() == JackTokenizer.FALSE
-                || tokenizer.keyWord() == JackTokenizer.NULL
-                || tokenizer.keyWord() == JackTokenizer.THIS)) {
-        printWriter.print("<keyword>" + tokenizer.getCurrentToken() + "</keyword>\n");
-        tokenPrintWriter.print("<keyword>" + tokenizer.getCurrentToken() + "</keyword>\n");
-      } else if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == '(') {
-        printWriter.print("<symbol>(</symbol>\n");
-        tokenPrintWriter.print("<symbol>(</symbol>\n");
+      if (tokenizer.tokenType() == JackTokenizer.TYPE.INT_CONST) {
+        //integerConstant just push its value onto stack
+        vmWriter.writePush(VMWriter.SEGMENT.CONST,tokenizer.intVal());
+
+      } else if (tokenizer.tokenType() == JackTokenizer.TYPE.STRING_CONST) {
+        //stringConstant new a string and append every char to the new stack
+        String str = tokenizer.stringVal();
+
+        vmWriter.writePush(VMWriter.SEGMENT.CONST, str.length());
+        vmWriter.writeCall("String.new", 1);
+
+        for (int i = 0; i < str.length(); i++) {
+          vmWriter.writePush(VMWriter.SEGMENT.CONST, (int)str.charAt(i));
+          vmWriter.writeCall("String.appendChar", 2);
+        }
+
+      } else if (tokenizer.tokenType() == JackTokenizer.TYPE.KEYWORD && tokenizer.keyWord() == JackTokenizer.KEYWORD.TRUE) {
+        //~0 is true
+        vmWriter.writePush(VMWriter.SEGMENT.CONST, 0);
+        vmWriter.writeArithmetic(VMWriter.COMMAND.NOT);
+
+      } else if (tokenizer.tokenType() == JackTokenizer.TYPE.KEYWORD && tokenizer.keyWord() == JackTokenizer.KEYWORD.THIS) {
+        //push this pointer onto stack
+        vmWriter.writePush(VMWriter.SEGMENT.POINTER, 0);
+
+      } else if (tokenizer.tokenType() == JackTokenizer.TYPE.KEYWORD && (tokenizer.keyWord() == JackTokenizer.KEYWORD.FALSE || tokenizer.keyWord() == JackTokenizer.KEYWORD.NULL)) {
+        //0 for false and null
+        vmWriter.writePush(VMWriter.SEGMENT.CONST, 0);
+
+      } else if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && tokenizer.symbol() == '(') {
         //expression
         compileExpression();
         //')'
         requireSymbol(')');
-      } else if (tokenizer.tokenType() == JackTokenizer.SYMBOL && (tokenizer.symbol() == '-' || tokenizer.symbol() == '~')) {
-        printWriter.print("<symbol>" + tokenizer.symbol() + "</symbol>\n");
-        tokenPrintWriter.print("<symbol>" + tokenizer.symbol() + "</symbol>\n");
+
+      } else if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && (tokenizer.symbol() == '-' || tokenizer.symbol() == '~')) {
+        char s = tokenizer.symbol();
         //term
         compileTerm();
+
+        if (s == '-') {
+          vmWriter.writeArithmetic(VMWriter.COMMAND.NEG);
+        } else {
+          vmWriter.writeArithmetic(VMWriter.COMMAND.NOT);
+        }
+
       } else {
         error("integerConstant|stringConstant|keywordConstant|'(' expression ')'|unaryOp term");
       }
     }
-    printWriter.print("</term>\n");
   }
 
   /**
@@ -647,43 +681,60 @@ public class CompilationEngine {
    */
   private void compileSubroutineCall() {
     tokenizer.advance();
-    if (tokenizer.tokenType() != JackTokenizer.IDENTIFIER) {
+    if (tokenizer.tokenType() != JackTokenizer.TYPE.IDENTIFIER) {
       error("identifier");
     }
 
-    printWriter.print("<identifier>" + tokenizer.identifier() + "</identifier>\n");
-    tokenPrintWriter.print("<identifier>" + tokenizer.identifier() + "</identifier>\n");
+    String name = tokenizer.identifier();
+    int nArgs = 0;
 
     tokenizer.advance();
-    if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == '(') {
+    if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && tokenizer.symbol() == '(') {
+      //push this pointer
+      vmWriter.writePush(VMWriter.SEGMENT.POINTER, 0);
       //'(' expressionList ')'
-      printWriter.print("<symbol>(</symbol>\n");
-      tokenPrintWriter.print("<symbol>(</symbol>\n");
       //expressionList
-      printWriter.print("<expressionList>\n");
-      compileExpressionList();
-      printWriter.print("</expressionList>\n");
+      nArgs = compileExpressionList() + 1;
       //')'
       requireSymbol(')');
-    } else if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == '.') {
+      //call subroutine
+      vmWriter.writeCall(currentClass + '.' + name, nArgs);
+
+    } else if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && tokenizer.symbol() == '.') {
       //(className|varName) '.' subroutineName '(' expressionList ')'
-      printWriter.print("<symbol>.</symbol>\n");
-      tokenPrintWriter.print("<symbol>.</symbol>\n");
+
+      String objName = name;
       //subroutineName
       tokenizer.advance();
 
-      if (tokenizer.tokenType() != JackTokenizer.IDENTIFIER) error("identifier");
+      if (tokenizer.tokenType() != JackTokenizer.TYPE.IDENTIFIER) {
+        error("identifier");
+      }
 
-      printWriter.print("<identifier>" + tokenizer.identifier() + "</identifier>\n");
-      tokenPrintWriter.print("<identifier>" + tokenizer.identifier() + "</identifier>\n");
+      name = tokenizer.identifier();
+
+      //check for if it is built-in type
+      String type = symbolTable.typeOf(objName);
+
+      if (type.equals("int") || type.equals("boolean") || type.equals("char") || type.equals("void")) {
+        error("no built-in type");
+      } else if (type.equals("")) {
+        name = objName + "." + name;
+      } else {
+        nArgs = 1;
+        //push variable directly onto stack
+        vmWriter.writePush(getSeg(symbolTable.kindOf(objName)), symbolTable.indexOf(objName));
+        name = symbolTable.typeOf(objName) + "." + name;
+      }
+
       //'('
       requireSymbol('(');
       //expressionList
-      printWriter.print("<expressionList>\n");
-      compileExpressionList();
-      printWriter.print("</expressionList>\n");
+      nArgs += compileExpressionList();
       //')'
       requireSymbol(')');
+      //call subroutine
+      vmWriter.writeCall(name, nArgs);
     } else {
       error("'('|'.'");
     }
@@ -694,66 +745,71 @@ public class CompilationEngine {
    * term (op term)*
    */
   private void compileExpression() {
-    printWriter.print("<expression>\n");
-
     //term
     compileTerm();
     //(op term)*
     do {
       tokenizer.advance();
       //op
-      if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.isOp()) {
-        if (tokenizer.symbol() == '>') {
-          printWriter.print("<symbol>&gt;</symbol>\n");
-          tokenPrintWriter.print("<symbol>&gt;</symbol>\n");
-        } else if (tokenizer.symbol() == '<') {
-          printWriter.print("<symbol>&lt;</symbol>\n");
-          tokenPrintWriter.print("<symbol>&lt;</symbol>\n");
-        } else if (tokenizer.symbol() == '&') {
-          printWriter.print("<symbol>&amp;</symbol>\n");
-          tokenPrintWriter.print("<symbol>&amp;</symbol>\n");
-        } else {
-          printWriter.print("<symbol>" + tokenizer.symbol() + "</symbol>\n");
-          tokenPrintWriter.print("<symbol>" + tokenizer.symbol() + "</symbol>\n");
+      if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && tokenizer.isOp()) {
+
+        String opCmd = "";
+
+        switch (tokenizer.symbol()) {
+          case '+': opCmd = "add"; break;
+          case '-': opCmd = "sub"; break;
+          case '*': opCmd = "call Math.multiply 2"; break;
+          case '/': opCmd = "call Math.divide 2"; break;
+          case '<': opCmd = "lt"; break;
+          case '>': opCmd = "gt"; break;
+          case '=': opCmd = "eq"; break;
+          case '&': opCmd = "and"; break;
+          case '|': opCmd = "or"; break;
+          default: error("Unknown op!");
         }
+
         //term
         compileTerm();
+
+        vmWriter.writeCommand(opCmd, "", "");
+
       } else {
         tokenizer.pointerBack();
         break;
       }
     } while (true);
-
-    printWriter.print("</expression>\n");
   }
 
   /**
    * Compiles a (possibly empty) comma-separated list of expressions
    * (expression(','expression)*)?
    */
-  private void compileExpressionList() {
+  private int compileExpressionList() {
+    int nArgs = 0;
+
     tokenizer.advance();
     //determine if there is any expression, if next is ')' then no
-    if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == ')') {
+    if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && tokenizer.symbol() == ')') {
       tokenizer.pointerBack();
     } else {
+      nArgs = 1;
       tokenizer.pointerBack();
       //expression
       compileExpression();
       //(','expression)*
       do {
         tokenizer.advance();
-        if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == ',') {
-          printWriter.print("<symbol>,</symbol>\n");
-          tokenPrintWriter.print("<symbol>,</symbol>\n");
+        if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL && tokenizer.symbol() == ',') {
           //expression
           compileExpression();
+          nArgs++;
         } else {
           tokenizer.pointerBack();
           break;
         }
       } while (true);
     }
+    return nArgs;
   }
 
   /**
@@ -770,10 +826,7 @@ public class CompilationEngine {
    */
   private void requireSymbol(char symbol) {
     tokenizer.advance();
-    if (tokenizer.tokenType() == JackTokenizer.SYMBOL && tokenizer.symbol() == symbol) {
-      printWriter.print("<symbol>" + symbol + "</symbol>\n");
-      tokenPrintWriter.print("<symbol>" + symbol + "</symbol>\n");
-    } else {
+    if (tokenizer.tokenType() == JackTokenizer.TYPE.SYMBOL || tokenizer.symbol() != symbol) {
       error("'" + symbol + "'");
     }
   }
