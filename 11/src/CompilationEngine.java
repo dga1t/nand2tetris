@@ -1,6 +1,4 @@
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintWriter;
 
 /**
  * This class does the compilation itself.
@@ -615,9 +613,8 @@ public class CompilationEngine {
         //this is a subroutineCall
         tokenizer.pointerBack();tokenizer.pointerBack();
         compileSubroutineCall();
+
       } else {
-        printWriter.print("<identifier>" + tempId + "</identifier>\n");
-        tokenPrintWriter.print("<identifier>" + tempId + "</identifier>\n");
         //this is varName
         tokenizer.pointerBack();
       }
