@@ -3,11 +3,11 @@ import java.io.File;
 /**
  * This class does the compilation itself.
  * It reads its input from a JackTokenizer and writes its output into a VMWriter.
- * It is organized as a series of compilexxx ( ) routines, where xxx is a syntactic element of the Jack language.
- * The contract between these routines is that each compilexxx ( ) routine should read the syntactic construct xxx from the input,
- * advance ( ) the tokenizer exactly beyond xxx, and emit to the output VM code effecting the semantics of xxx.
- * Thus compilexxx ( ) may only be called if indeed xxx is the next syntactic element of the input.
- * If xxx is a part of an expression and thus has a value, the emitted code should compute this value and leave it at the top of the VM stack
+ * It is organized as a series of compilexxx() routines, where xxx is a syntactic element of the Jack language.
+ * The contract between these routines is that each compilexxx() routine should read the syntactic construct xxx from the input,
+ * advance() the tokenizer exactly beyond xxx, and emit to the output VM code effecting the semantics of xxx.
+ * Thus compilexxx() may only be called if indeed xxx is the next syntactic element of the input.
+ * If xxx is a part of an expression and has a value, the emitted code should compute this value and leave it at the top of the VM stack.
  */
 public class CompilationEngine {
   private VMWriter vmWriter;
@@ -202,7 +202,7 @@ public class CompilationEngine {
       type = "void";
     } else {
       tokenizer.pointerBack();
-      compileType();
+      type = compileType();
     }
 
     //subroutineName which is a identifier
@@ -259,19 +259,15 @@ public class CompilationEngine {
       // A Jack method with k arguments is compiled into a VM function that operates on k + 1 arguments.
       // The first argument (argument number 0) always refers to this object.
       vmWriter.writePush(VMWriter.SEGMENT.ARG, 0);
-      vmWriter.writePop(VMWriter.SEGMENT.POINTER,0);
+      vmWriter.writePop(VMWriter.SEGMENT.POINTER, 0);
 
     } else if (keyword == JackTokenizer.KEYWORD.CONSTRUCTOR) {
       //A Jack function or constructor with k arguments is compiled into a VM function that operates on k arguments.
       vmWriter.writePush(VMWriter.SEGMENT.CONST, symbolTable.varCount(Symbol.KIND.FIELD));
       vmWriter.writeCall("Memory.alloc", 1);
-      vmWriter.writePop(VMWriter.SEGMENT.POINTER,0);
+      vmWriter.writePop(VMWriter.SEGMENT.POINTER, 0);
     }
   }
-
-
-  // <<<<<< stopped here >>>>>>>
-
 
   /**
    * Compiles a single statement

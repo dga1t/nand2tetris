@@ -44,10 +44,10 @@ public class SymbolTable {
   /**
    * Starts a new subroutine scope and resets the subroutine's symbol table.
    */
-  public void startSubroutine(){
+  public void startSubroutine() {
     subroutineSymbols.clear();
-    indices.put(Symbol.KIND.VAR,0);
-    indices.put(Symbol.KIND.ARG,0);
+    indices.put(Symbol.KIND.VAR, 0);
+    indices.put(Symbol.KIND.ARG, 0);
   }
 
   /**
@@ -115,14 +115,14 @@ public class SymbolTable {
   }
 
   /**
-   * check if target symbol is exist
+   * Check if target symbol exists.
    * @param name
    * @return
    */
   private Symbol lookUp(String name) {
-    if (classSymbols.get(name) != null){
+    if (classSymbols.get(name) != null) {
       return classSymbols.get(name);
-    } else if (subroutineSymbols.get(name) != null){
+    } else if (subroutineSymbols.get(name) != null) {
       return subroutineSymbols.get(name);
     } else {
       return null;
